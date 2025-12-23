@@ -1,0 +1,9 @@
+# ==========================
+# Build, test and Vscode directories
+# ==========================
+build/
+Testing/
+.vscode/
+
+# used locally only
+DockerFile 
