@@ -1,4 +1,4 @@
-#library code
+# Build the hotel library
 add_library(hotel_lib
     src/Hotel.cpp
     src/HotelRoom.cpp

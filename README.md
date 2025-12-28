@@ -6,7 +6,7 @@ This repository is a hands-on DevOps learning project built from scratch as part
 
 To demonstrate the DevOps skills learned from the course, I chose to build a **Hotel Reservation System in C/C++**, developing it step-by-step while incrementally expanding the CI/CD workflows.
 
-## Main Features
+## Main application Features
 
 - View available rooms
 - Book a room
@@ -27,28 +27,132 @@ I have 3 years of professional experience as a C/C++ developer. This project ref
 - Apply DevOps best practices including automation, linting, security, and reusable workflows
 - Build production-oriented CI pipelines from scratch rather than copying tutorial code
 
-## Current Status
-
-The project is under active development. The repository structure and roadmap are defined, and CI/CD components will be implemented incrementally as concepts are applied and validated.
-
-## Planned Implementations / Next Steps
-
-- Design and implement CI/CD workflows from scratch using GitHub Actions
-- Create reusable workflows using `workflow_call`
-- Develop reusable custom actions (composite, JavaScript, and container-based)
-- Implement CI pipeline automation including linting, validation, and execution flow
-- Introduce caching mechanisms to optimize pipeline performance
-- Add matrix builds for multi-version or multi-platform testing
-- Expand security checks including dependency, secret, and configuration scanning
-- Maintain a clean, scalable repository structure with clear documentation
-- Document CI/CD architecture and workflow design using diagrams
-
 ## Design Principles
 
 - **Reusability**: Actions and workflows designed for reuse  
 - **Security-first**: Least-privilege permissions and safe secret handling  
 - **Maintainability**: Clear structure, naming, and documentation  
 - **Production mindset**: Pipelines designed as they would be in real-world projects  
+
+## Current Status
+
+This project is intentionally developed incrementally to mirror real-world DevOps workflows.
+Instead of building everything upfront, functionality and CI/CD capabilities are added step-by-step as concepts are learned, validated, and refined.
+
+## Initial Plan
+
+- Build a simple C/C++ application to act as a realistic workload
+- Focus on CI/CD design rather than application complexity
+- Separate core logic (library) from executable (application)
+- Apply GitHub Actions concepts gradually
+
+## What Has Been Implemented So Far
+
+- Simple Application Architecture
+- Modular Hotel Library (core business logic)
+- Separate CLI Application consuming the library
+- Clean CMake-based build structure
+- Clear separation between library tests and application tests
+
+## Testing Strategy
+
+- Unit tests for the hotel library using GoogleTest
+- Independent testing of the library without the application
+- Application-level tests validating CLI behavior
+- Integration tests covering end-to-end flows
+
+## CI/CD Implementation
+
+- GitHub Actions workflow built from scratch
+- Library tests executed on:
+    - Pull requests
+    - Pushes to main
+- Application build executed only on Push to main branch
+- CI designed to fail fast and provide clear feedback
+
+## CI/CD Pipeline Architecture
+
+This diagram illustrates the structure of our GitHub Actions workflows, including:
+
+- Job dependencies
+- Reusable workflows
+- Artifact flow
+- Build caching
+
+```mermaid
+flowchart TD
+    %% Nodes
+    L[ci-library.yml<br>Build & Test Library<br>Cache + Artifacts]:::lib
+    APP[ci-app.yml<br>Build App<br>Optional App Tests<br>Upload Executable]:::app
+    Q[ci-quality.yml<br>Lint & Coverage<br>Upload Reports]:::quality
+    MATRIX[ci-matrix.yml<br>Multi-OS / Compiler<br>Reusable Build & Test]:::matrix
+
+    %% Artifacts
+    ART_LIB[Library Test Reports]:::artifact
+    ART_APP[App Executable]:::artifact
+    ART_QUALITY[Coverage & Lint Reports]:::artifact
+
+    %% Dependencies
+    L -->|Library passes| APP
+    L -->|Library passes| Q
+    MATRIX -->|Runs reusable workflow| L
+
+    %% Artifacts flow
+    L -.-> ART_LIB
+    APP -.-> ART_APP
+    Q -.-> ART_QUALITY
+
+    %% Styling
+    classDef lib fill:#ffd699,stroke:#cc7a00,stroke-width:1px,color:#000;
+    classDef app fill:#99ccff,stroke:#0066cc,stroke-width:1px,color:#000;
+    classDef quality fill:#ccff99,stroke:#339900,stroke-width:1px,color:#000;
+    classDef matrix fill:#ff99cc,stroke:#cc0066,stroke-width:1px,color:#000;
+    classDef artifact fill:#eeeeee,stroke:#333333,stroke-width:1px,color:#000;
+
+
+## Planned Implementations / Next Steps
+
+| Status | Item                                                                    |
+| ------ | ----------------------------------------------------------------------- |
+| ✅      | Modular CMake project structure                                         |
+| ✅      | Library unit tests with GoogleTest                                      |
+| ✅      | Application build and CLI validation                                    |
+| ✅      | CI pipeline for library and applicationvalidation                       |
+| ⏳      | CI pipeline enhancements (linting, static analysis, and extended checks) |
+| ⏳      | Reusable GitHub workflows (`workflow_call`)                             |
+| ⏳      | Custom composite GitHub Actions                                         |
+| ⏳      | Matrix builds (OS / compiler versions)                                  |
+| ⏳      | Pipeline caching for faster builds                                      |
+| ⏳      | Security scanning (dependencies, secrets and configuration scanning)    |
+| ⏳      | Code coverage reporting                                                 |
+| ⏳      | CI/CD architecture diagrams                                             |
+| ⏳      | Artifacts generated for application binaries                            |
+
+## Build and Test
+
+This project uses CMake and a standard out-of-source build.
+
+# Build
+cmake -S . -B build
+cmake --build build
+
+This will build:
+
+- The hotel core library
+- The CLI application
+- All configured test targets
+
+Run Tests
+
+To run all tests (library plus App):
+
+ctest --test-dir build --output-on-failure
+
+
+To build and run only the hotel library tests:
+
+cmake --build build --target hotel_lib_tests
+ctest --test-dir build -R hotel_lib_tests
 
 ## Credits
 

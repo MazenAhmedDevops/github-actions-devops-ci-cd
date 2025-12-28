@@ -1,3 +1,6 @@
+# Enable testing
+enable_testing()
+
 # Enable FetchContent module to download GoogleTest
 include(FetchContent)
 
@@ -14,13 +17,11 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 # Make GoogleTest available as targets
 FetchContent_MakeAvailable(googletest)
 
+# Build library tests
+file(GLOB LIB_TEST_SOURCES ./*.cpp)
+
 # Add executable for library tests
-add_executable(hotel_lib_tests
-    hotel_room_reservation_overlap.cpp
-    hotel_room_reservation_no_overlap.cpp
-    hotel_room_exception_tests.cpp
-    hotel_room_sorted_insertion.cpp
-)
+add_executable(hotel_lib_tests ${LIB_TEST_SOURCES})
 
 # Link library and GoogleTest to test executable
 target_link_libraries(hotel_lib_tests

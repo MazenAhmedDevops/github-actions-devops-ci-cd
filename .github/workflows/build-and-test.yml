@@ -1,0 +1,71 @@
+name: Build and Test Library
+
+# This workflow can be called from other workflows
+on:
+  workflow_call:
+    inputs:
+      compiler:
+        required: false
+        default: g++
+        type: string
+      build_target:
+        description: "CMake target to build"
+        required: true
+        type: string
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout code
+      - uses: actions/checkout@v4
+
+      # -----------------------------
+      # Caching
+      # -----------------------------
+      # Cache compiled objects
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: build/hotel_lib
+          key: ${{ runner.os }}-cmake-${{ hashFiles('hotel_lib/**.cpp','hotel_lib/**.h') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-
+
+      # Cache GoogleTest (FetchContent)
+      - name: Cache GoogleTest
+        uses: actions/cache@v4
+        with:
+          path: ~/.cmake/FetchContent
+          key: ${{ runner.os }}-gtest-${{ hashFiles('CMakeLists.txt','hotel_lib/tests/**.cpp') }}
+
+      # -----------------------------
+      # Install dependencies
+      # -----------------------------
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
+
+      # -----------------------------
+      # Build library
+      # -----------------------------
+      - name: Configure Library
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ inputs.compiler }}
+
+      - name: Build Library
+        run: cmake --build build --target ${{ inputs.build_target }}
+
+
+      # -----------------------------
+      # Run tests
+      # -----------------------------
+      - name: Run Library Tests
+        run: ctest --test-dir build/hotel_lib/tests --output-on-failure
+
+      # -----------------------------
+      # Upload artifacts
+      # -----------------------------
+      - name: Upload Library Test Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: library_test_report
+          path: build/hotel_lib/tests/Testing/Temporary
