@@ -2,14 +2,12 @@ name: Library CI
 
 on:
   workflow_dispatch:  # Trigger manually
-
-  push:
-    paths:
-      - "hotel_lib/**"
-      - ".github/workflows/**"
+  
+#This ensures only the latest CI runs per branch execute.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   lib-tests:        
-    uses: ./.github/workflows/build-and-test.yml
-    with:
-      build_target: hotel_lib_tests
+    uses: ./.github/workflows/build-and-test-lib.yml

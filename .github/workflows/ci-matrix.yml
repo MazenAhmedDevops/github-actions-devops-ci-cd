@@ -1,0 +1,118 @@
+name: Multi-Platform C++ CI for library and application
+
+# -----------------------------
+# Triggers
+# -----------------------------
+# - Manual trigger (workflow_dispatch)
+# - Automatic trigger when 
+#   a PR on master branch is opened/updated and application or library code is changed 
+#   or when the workflows (build-and-test-lib.yml or build-and-test-app.yml or Ci-matrix.yml) are updated
+on:
+  workflow_dispatch:
+  pull_request: 
+    branches: [ master ]
+    paths:
+      - 'Application/**'
+      - 'hotel_lib/**'
+      - '.github/workflows/build-and-test-lib.yml'
+      - '.github/workflows/build-and-test-app.yml'
+      - '.github/workflows/Ci-matrix.yml'
+
+#This ensures only the latest CI runs per branch execute.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  library:
+    uses: ./.github/workflows/build-and-test-lib.yml
+
+    # ---------------------------------
+    # Matrix strategy
+    # ---------------------------------
+    # Build & test the library across:
+    # - Multiple OSes
+    # - Multiple C++ compilers
+    #
+    # We use "include" instead of
+    # separate arrays to control
+    # valid OS/compiler combinations
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # -------- Linux --------
+          - os: ubuntu-latest
+            compiler: g++      
+
+          - os: ubuntu-latest
+            compiler: clang++    
+
+          # -------- Windows --------
+          - os: windows-latest
+            compiler: g++   
+
+          - os: windows-latest
+            compiler: cl    
+
+          # -------- macOS --------
+          - os: macos-latest
+            compiler: clang++    
+
+    # ---------------------------------
+    # Inputs passed to reusable workflow
+    # ---------------------------------
+    with:
+      compiler: ${{ matrix.compiler }} # Selected C++ compiler
+
+      # ---------------------------------
+      # Runner OS (comes from matrix)
+      # ---------------------------------
+      os: ${{ matrix.os }}
+
+  Application:
+    needs: library
+    uses: ./.github/workflows/build-and-test-app.yml
+
+    # ---------------------------------
+    # Matrix strategy
+    # ---------------------------------
+    # Build & test the Application across:
+    # - Multiple OSes
+    # - Multiple C++ compilers
+    #
+    # We use "include" instead of
+    # separate arrays to control
+    # valid OS/compiler combinations
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # -------- Linux --------
+          - os: ubuntu-latest
+            compiler: g++      
+
+          - os: ubuntu-latest
+            compiler: clang++    
+
+          # -------- Windows --------
+          - os: windows-latest
+            compiler: g++   
+
+          - os: windows-latest
+            compiler: cl    
+
+          # -------- macOS --------
+          - os: macos-latest
+            compiler: clang++    
+
+    # ---------------------------------
+    # Inputs passed to reusable workflow
+    # ---------------------------------
+    with:
+      compiler: ${{ matrix.compiler }} # Selected C++ compiler
+
+      # ---------------------------------
+      # Runner OS (comes from matrix)
+      # ---------------------------------
+      os: ${{ matrix.os }}

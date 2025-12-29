@@ -4,6 +4,11 @@
 #include <array>
 #include <memory>
 
+#ifdef _WIN32
+  #define popen  _popen
+  #define pclose _pclose
+#endif
+
 // Helper to run command and capture output
 std::string run(const std::string& cmd) {
     std::array<char, 256> buffer;

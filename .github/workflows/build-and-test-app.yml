@@ -1,0 +1,134 @@
+name: Build & Test Hotel App (Reusable)
+
+# -----------------------------
+# Reusable workflow for building & testing the hotel app
+# Can be called from other workflows (matrix or single runs)
+# -----------------------------
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: false
+        default: ubuntu-latest
+        type: string    
+      compiler:
+        required: false
+        default: g++
+        type: string
+
+jobs:
+  build-test-app:
+    runs-on: ${{ inputs.os }}
+
+    steps:
+      # -----------------------------
+      # Checkout the repository
+      # -----------------------------
+      - uses: actions/checkout@v4
+
+      # -----------------------------
+      # Cache CMake FetchContent dependencies (GoogleTest, etc.)
+      # to avoid re-downloading on each build
+      # Uses OS-specific key plus hash of CMakeLists.txt to 
+      # invalidate cache if dependencies change
+      # -----------------------------
+      - name: Cache GoogleTest (FetchContent)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cmake/FetchContent
+          key: ${{ runner.os }}-gtest-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-gtest-
+       
+      # -----------------------------
+      # Install required tools (Linux)
+      # Conditional: Only if not cached
+      # -----------------------------
+      - name: Install Linux Tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      # -----------------------------
+      # Install required tools (macOS)
+      # Conditional: Only install CMake if missing
+      # -----------------------------
+      - name: Install macOS Tools
+        if: runner.os == 'macOS'
+        run: |
+          brew list cmake || brew install cmake
+
+      # -----------------------------
+      # Install required tools (Windows)
+      # Conditional: Only install CMake if missing
+      # Avoid caching the whole Chocolatey folder (slow)
+      # -----------------------------
+      - name: Install Windows Tools
+        if: runner.os == 'Windows'
+        run: |
+          choco list --local-only cmake || choco install cmake -y
+
+      # -----------------------------
+      # Configure CMake build
+      # -----------------------------
+      - name: Configure Build
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ inputs.compiler }}
+
+      # -----------------------------
+      # Build test target
+      # -----------------------------
+      - name: Build hotel_app_tests
+        run: cmake --build build --target hotel_app_tests
+
+      # -----------------------------
+      # Build application executable
+      # -----------------------------
+      - name: Build hotel_app
+        run: cmake --build build --target hotel_app
+
+      # -----------------------------
+      # Run app tests
+      # -----------------------------
+      - name: Run App Tests
+        run: ctest --test-dir build/Application/tests --output-on-failure
+
+      # -----------------------------
+      # Upload test reports for artifact analysis
+      # -----------------------------
+      - name: Upload App Test Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Application_test_report-${{ runner.os }}-${{ inputs.compiler }}
+          path: build/Application/tests/Testing/Temporary
+
+      # -----------------------------
+      # Upload app binary (Linux)
+      # -----------------------------
+      - name: Upload App Binary (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
+          path: build/Application/hotel_app
+
+      # -----------------------------
+      # Upload app binary (Windows)
+      # Use globbing to catch Debug/Release builds without caching entire Chocolatey
+      # -----------------------------
+      - name: Upload App Binary (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
+          path: build/Application/**/hotel_app.exe
+
+      # -----------------------------
+      # Upload app binary (macOS)
+      # -----------------------------
+      - name: Upload App Binary (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
+          path: build/Application/hotel_app

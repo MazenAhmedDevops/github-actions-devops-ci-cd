@@ -1,65 +1,17 @@
 name: App CI
 
-# Only build the app on main branch
 on:
   workflow_dispatch:  # Trigger manually
 
-  pull_request:
+#This ensures only the latest CI runs per branch execute.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   library:
-    uses: ./.github/workflows/build-and-test.yml
-    with:
-      build_target: hotel_lib_tests
-  app-build:
-    runs-on: ubuntu-latest
-    needs: library  # Ensure library tests passed
-    steps:
-      # Checkout
-      - uses: actions/checkout@v4
+    uses: ./.github/workflows/build-and-test-lib.yml
 
-      # Cache compiled app build
-      - name: Cache CMake App build
-        uses: actions/cache@v4
-        with:
-          path: build/Application
-          key: ${{ runner.os }}-cmake-app-${{ hashFiles('Application/src/**.cpp','Application/srcinclude/**.h') }}
-
-      # Cache GoogleTest (FetchContent)
-      - name: Cache GoogleTest
-        uses: actions/cache@v4
-        with:
-          path: ~/.cmake/FetchContent
-          key: ${{ runner.os }}-gtest-${{ hashFiles('CMakeLists.txt','Application/tests/**.cpp') }}
-      # Install dependencies
-      - name: Install build tools
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential
-
-      # Configure app
-      - name: Configure App
-        run: cmake -S . -B build
-
-      # Build app executable
-      - name: Build App
-        run: cmake --build build --target hotel_app
-
-      # Build app tests
-      - name: Build App
-        run: cmake --build build --target hotel_app_tests
-
-      # Run app tests 
-      - name: Run App Tests 
-        run: ctest --test-dir build/Application/tests --output-on-failure
-
-      # Upload app binary
-      - name: Upload App Binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: hotel_app_executable
-          path: build/Application
-      # Upload app tests
-      - name: Upload App Tets
-        uses: actions/upload-artifact@v4
-        with:
-          name: hotel_app_tests
-          path: build/Application/tests/Testing/Temporary
+  app:
+    needs: library
+    uses: ./.github/workflows/build-and-test-app.yml
