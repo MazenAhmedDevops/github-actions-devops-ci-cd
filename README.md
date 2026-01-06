@@ -166,9 +166,7 @@ specific responsibility:
 
 ```mermaid
 flowchart TD
-    %% -----------------------------
     %% Triggers
-    %% -----------------------------
     PR[Pull Request] --> AQ
     PR --> LQ
     PR --> MATRIX
@@ -182,34 +180,33 @@ flowchart TD
     %% -----------------------------
     %% Quality workflows
     %% -----------------------------
-    AQ[ci-app-quality-checks.yml\nApp Lint and Coverage]:::quality
-    LQ[ci-library-quality-checks.yml\nLibrary Lint and Coverage]:::quality
+    AQ["ci-app-quality-checks.yml<br>App Lint and Coverage"]:::quality
+    LQ["ci-library-quality-checks.yml<br>Library Lint and Coverage"]:::quality
 
     %% -----------------------------
     %% Build and Test workflows
     %% -----------------------------
-    LIB[ci-library.yml\nBuild and Test Library]:::lib
-    APP[ci-app.yml\nBuild and Test App\nIncludes Library Tests]:::app
+    LIB["ci-library.yml<br>Build and Test Library"]:::lib
+    APP["ci-app.yml<br>Build and Test App<br>Includes Library Tests"]:::app
 
     %% Dependency
-    LIB --> APP
+    APP --> LIB
 
     %% -----------------------------
     %% Matrix workflow
     %% -----------------------------
-    MATRIX[ci-matrix.yml\nMulti OS and Compiler\nLibrary and App]:::matrix
+    MATRIX["ci-matrix.yml<br>Multi OS and Compiler<br>Library and App"]:::matrix
 
     %% -----------------------------
     %% Artifacts
     %% -----------------------------
-    AQ -.-> AQ_ART[App Quality Reports]:::artifact
-    LQ -.-> LQ_ART[Library Quality Reports]:::artifact
+    AQ -.-> AQ_ART["App Quality Reports"]:::artifact
+    LQ -.-> LQ_ART["Library Quality Reports"]:::artifact
 
-    LIB -.-> LIB_ART[Library Test Reports]:::artifact
-    APP -.-> APP_ART[Application Binary]:::artifact
-    APP -.-> LIB_ART
+    LIB -.-> LIB_ART["Library Test Reports"]:::artifact
+    APP -.-> APP_ART["Application Binary <br> & <br> Application test report"]:::artifact
 
-    MATRIX -.-> MATRIX_ART[Cross Platform Results]:::artifact
+    MATRIX -.-> MATRIX_ART["Cross Platform Results"]:::artifact
 
     %% -----------------------------
     %% Styling
