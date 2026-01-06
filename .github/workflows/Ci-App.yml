@@ -1,0 +1,17 @@
+name: App CI
+
+on:
+  workflow_dispatch:  # Trigger manually
+
+#This ensures only the latest CI runs per branch execute.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  library:
+    uses: ./.github/workflows/build-and-test-lib.yml
+
+  app:
+    needs: library
+    uses: ./.github/workflows/build-and-test-app.yml

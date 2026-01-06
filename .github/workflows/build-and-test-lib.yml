@@ -1,0 +1,90 @@
+name: Build & Test Hotel library (Reusable)
+
+# This workflow can be called from other workflows
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: false
+        default: ubuntu-latest
+        type: string    
+      compiler:
+        required: false
+        default: g++
+        type: string
+
+jobs:
+  build-test:
+    runs-on: ${{ inputs.os }}
+
+    steps:
+      # -----------------------------
+      # Checkout source
+      # -----------------------------
+      - uses: actions/checkout@v4
+
+      # -----------------------------
+      # Cache CMake FetchContent dependencies (GoogleTest, etc.)
+      # to avoid re-downloading on each build
+      # Uses OS-specific key plus hash of CMakeLists.txt to 
+      # invalidate cache if dependencies change
+      # -----------------------------
+      - name: Cache GoogleTest (FetchContent)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cmake/FetchContent
+          key: ${{ runner.os }}-gtest-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-gtest-
+
+      # -----------------------------
+      # Install tools (Linux)
+      # -----------------------------
+      - name: Install tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      # -----------------------------
+      # Install tools (macOS)
+      # -----------------------------
+      - name: Install tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew list cmake || brew install cmake
+
+      # -----------------------------
+      # Install tools (Windows)
+      # -----------------------------
+      - name: Install tools (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco list --local-only cmake || choco install cmake -y
+
+      # -----------------------------
+      # Build Configuration
+      # -----------------------------
+      - name: Build Configuration 
+        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ inputs.compiler }}
+
+      # -----------------------------
+      # Build target for testing
+      # -----------------------------
+      - name: Build hotel_lib_tests target 
+        run: cmake --build build --target hotel_lib_tests
+
+      # -----------------------------
+      # Run tests
+      # -----------------------------
+      - name: Run Library Tests
+        run: ctest --test-dir build/hotel_lib/tests --output-on-failure
+
+      # -----------------------------
+      # Upload artifacts
+      # -----------------------------
+      - name: Upload Library Test Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: library_test_report-${{ inputs.os }}-${{ inputs.compiler }}
+          path: build/hotel_lib/tests/Testing/Temporary
