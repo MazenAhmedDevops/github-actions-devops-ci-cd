@@ -12,6 +12,13 @@ on:
         required: false
         default: g++
         type: string
+      build-type:
+        required: false
+        default: Release
+        type: string
+
+env:
+  HOME_DIR: $HOME
 
 jobs:
   build-test:
@@ -24,18 +31,22 @@ jobs:
       - uses: actions/checkout@v4
 
       # -----------------------------
-      # Cache CMake FetchContent dependencies (GoogleTest, etc.)
-      # to avoid re-downloading on each build
-      # Uses OS-specific key plus hash of CMakeLists.txt to 
-      # invalidate cache if dependencies change
+      # Ensure the directory exists before caching
       # -----------------------------
-      - name: Cache GoogleTest (FetchContent)
-        uses: actions/cache@v4
-        with:
-          path: ~/.cmake/FetchContent
-          key: ${{ runner.os }}-gtest-${{ hashFiles('**/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-gtest-
+      - name: Ensure FetchContent cache directory exists
+        shell: bash
+        run: |
+          # Detect HOME fallback and persist it to env
+          HOME_DIR="${HOME:-$RUNNER_TEMP}"
+          echo "HOME_DIR=$HOME_DIR" >> $GITHUB_ENV
+          echo "Using HOME_DIR=$HOME_DIR"
+
+          # Create directories
+          mkdir -p "${HOME_DIR}/.cache/ccache"
+          mkdir -p "${HOME_DIR}/.cmake/FetchContent"
+
+          # Print to verify
+          ls -ld "$HOME_DIR/.cmake" "$HOME_DIR/.cache"
 
       # -----------------------------
       # Install tools (Linux)
@@ -44,7 +55,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          sudo apt-get install -y cmake build-essential ccache
 
       # -----------------------------
       # Install tools (macOS)
@@ -63,22 +74,96 @@ jobs:
           choco list --local-only cmake || choco install cmake -y
 
       # -----------------------------
-      # Build Configuration
+      # Configure CMake build (Linux only for now)
       # -----------------------------
-      - name: Build Configuration 
-        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ inputs.compiler }}
+      - name: Configure CMake (Linux)
+        if: runner.os == 'Linux'
+        run: >
+          cmake -S . -B build
+          -DCMAKE_CXX_COMPILER=${{ inputs.compiler }}
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          -DCMAKE_BUILD_TYPE=${{ inputs.build-type }}
+          -DFETCHCONTENT_BASE_DIR=${{ env.HOME_DIR }}/.cmake/FetchContent
+
+      # -----------------------------
+      # Configure CMake build (non-linux os)
+      # -----------------------------
+      - name: Configure CMake (non-Linux)
+        if: runner.os != 'Linux'
+        run: >
+          cmake -S . -B build
+          -DCMAKE_CXX_COMPILER=${{ inputs.compiler }}
+          -DCMAKE_BUILD_TYPE=${{ inputs.build-type }}
+          -DFETCHCONTENT_BASE_DIR=${{ env.HOME_DIR }}/.cmake/FetchContent
+
+      # -----------------------------
+      # Normalize build configuration
+      # -----------------------------
+      - name: Normalize build configuration
+        id: buildcfg
+        shell: bash
+        run: |
+          echo "config=${{ inputs.build-type }}" >> $GITHUB_OUTPUT
+
+      # -----------------------------
+      # Cache CMake FetchContent dependencies (GoogleTest, etc.)
+      # to avoid re-downloading on each build
+      # Uses OS-specific key, compiler info, build type and 
+      # hash of CMakeLists.txt to invalidate cache if 
+      # dependencies change
+      # -----------------------------
+      - name: Cache CMake FetchContent
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.HOME_DIR }}/.cmake/FetchContent
+          key: >
+            fetchcontent
+            -${{ runner.os }}
+            -${{ inputs.compiler }}
+            -${{ steps.buildcfg.outputs.config }}
+            -${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            fetchcontent-${{ runner.os }}-${{ inputs.compiler }}-
+            fetchcontent-${{ runner.os }}-
+
+      # -----------------------------
+      # Cache ccache (Linux only)
+      # Uses OS-specific key, compiler info, build type and 
+      # hash of CMakeLists.txt and source code to invalidate 
+      # cache if dependencies change
+      # -----------------------------
+      - name: Cache ccache
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.HOME_DIR }}/.cache/ccache
+          key: >
+            ccache
+            -${{ runner.os }}
+            -${{ inputs.compiler }}
+            -${{ hashFiles('**/*.cpp', '**/*.h', '**/CMakeLists.txt') }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ inputs.compiler }}-
+            ccache-${{ runner.os }}-
 
       # -----------------------------
       # Build target for testing
       # -----------------------------
-      - name: Build hotel_lib_tests target 
-        run: cmake --build build --target hotel_lib_tests
+      - name: Build hotel_lib_tests
+        run: >
+          cmake --build build
+          --target hotel_lib_tests
+          --config ${{ steps.buildcfg.outputs.config }}
 
       # -----------------------------
       # Run tests
       # -----------------------------
       - name: Run Library Tests
-        run: ctest --test-dir build/hotel_lib/tests --output-on-failure
+        run: >
+          ctest
+          --test-dir build/hotel_lib/tests
+          --build-config ${{ steps.buildcfg.outputs.config }}
+          --output-on-failure
 
       # -----------------------------
       # Upload artifacts
@@ -88,3 +173,10 @@ jobs:
         with:
           name: library_test_report-${{ inputs.os }}-${{ inputs.compiler }}
           path: build/hotel_lib/tests/Testing/Temporary
+          
+      # -----------------------------
+      # Show ccache statistics
+      # -----------------------------
+      - name: ccache statistics
+        if: runner.os == 'Linux'
+        run: ccache --show-stats
