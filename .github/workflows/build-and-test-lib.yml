@@ -72,6 +72,16 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           choco list --local-only cmake || choco install cmake -y
+          
+      # -----------------------------
+      # Configure ccache (Linux only for now)
+      # -----------------------------
+      - name: Configure ccache
+        if: runner.os == 'Linux'
+        run: |
+          ccache --set-config=sloppiness=time_macros
+          ccache --set-config=compression=true
+          ccache --set-config=compression_level=5
 
       # -----------------------------
       # Configure CMake build (Linux only for now)
@@ -172,8 +182,10 @@ jobs:
           path: build/hotel_lib/tests/Testing/Temporary
           
       # -----------------------------
-      # Show ccache statistics
+      # Show ccache statistics & config
       # -----------------------------
-      - name: ccache statistics
+      - name: ccache statistics & config
         if: runner.os == 'Linux'
-        run: ccache --show-stats
+        run: |
+          ccache --show-stats
+          ccache --show-config
