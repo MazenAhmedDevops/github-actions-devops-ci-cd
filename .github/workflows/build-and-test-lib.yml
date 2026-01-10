@@ -108,7 +108,7 @@ jobs:
       # -----------------------------
       # Cache CMake FetchContent dependencies (GoogleTest, etc.)
       # to avoid re-downloading on each build
-      # Uses OS-specific key, compiler info, build type and 
+      # Uses OS-specific key, compiler info and 
       # hash of CMakeLists.txt to invalidate cache if 
       # dependencies change
       # -----------------------------
@@ -120,16 +120,14 @@ jobs:
             fetchcontent
             -${{ runner.os }}
             -${{ inputs.compiler }}
-            -${{ steps.buildcfg.outputs.config }}
             -${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
-            fetchcontent-${{ runner.os }}-${{ inputs.compiler }}-
+            fetchcontent-${{ runner.os }}-${{ inputs.compiler}}-
             fetchcontent-${{ runner.os }}-
 
       # -----------------------------
       # Cache ccache (Linux only)
-      # Uses OS-specific key, compiler info, build type and 
-      # hash of CMakeLists.txt and source code to invalidate 
+      # Uses OS-specific key and compiler info to invalidate 
       # cache if dependencies change
       # -----------------------------
       - name: Cache ccache
@@ -141,11 +139,10 @@ jobs:
             ccache
             -${{ runner.os }}
             -${{ inputs.compiler }}
-            -${{ hashFiles('**/*.cpp', '**/*.h', '**/CMakeLists.txt') }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ inputs.compiler }}-
+            ccache-${{ runner.os }}-${{ inputs.compiler}}-
             ccache-${{ runner.os }}-
-
+              
       # -----------------------------
       # Build target for testing
       # -----------------------------
