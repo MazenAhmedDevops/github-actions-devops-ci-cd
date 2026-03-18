@@ -15,7 +15,12 @@ on:
         required: false
         default: g++
         type: string
+      build-type:
+        required: false
+        default: Release
+        type: string
 
+       
 jobs:
   build-test-app:
     runs-on: ${{ inputs.os }}
@@ -27,71 +32,204 @@ jobs:
       - uses: actions/checkout@v5
 
       # -----------------------------
-      # Cache CMake FetchContent dependencies (GoogleTest, etc.)
-      # to avoid re-downloading on each build
-      # Uses OS-specific key plus hash of CMakeLists.txt to 
-      # invalidate cache if dependencies change
+      # Setting up enviroment for Cl compiler 
       # -----------------------------
-      - name: Cache GoogleTest (FetchContent)
-        uses: actions/cache@v5
-        with:
-          path: ~/.cmake/FetchContent
-          key: ${{ runner.os }}-gtest-${{ hashFiles('**/CMakeLists.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-gtest-
-       
+      - name: Setup MSVC environment (Cl compiler for Windows)
+        if: runner.os == 'Windows' && inputs.compiler == 'cl'
+        uses: ilammy/msvc-dev-cmd@v1    
+
+      # -----------------------------
+      # Set home directory & Ensure directory exists
+      # -----------------------------
+      - name: Set home directory & Ensure directory exists
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            # IMPORTANT: use -m (C:/...) instead of -u (/c/...)
+            HOME_DIR="$(cygpath -m "$USERPROFILE")"
+          else
+            HOME_DIR="${HOME:-$RUNNER_TEMP}"
+          fi
+
+          echo "HOME_DIR=$HOME_DIR" >> $GITHUB_ENV
+          echo "Using HOME_DIR=$HOME_DIR"
+
+          # Create directories
+          mkdir -p "${HOME_DIR}/.cache/ccache"
+          mkdir -p "${HOME_DIR}/.cmake/FetchContent"
+
+          # Print to verify
+          ls -ld "$HOME_DIR/.cmake" "$HOME_DIR/.cache"
+
       # -----------------------------
       # Install required tools (Linux)
-      # Conditional: Only if not cached
       # -----------------------------
-      - name: Install Linux Tools
+      - name: Install Tools (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          MISSING=""
+          command -v cmake >/dev/null 2>&1 || MISSING="$MISSING cmake"
+          command -v ccache >/dev/null 2>&1 || MISSING="$MISSING ccache"
+          command -v ninja >/dev/null 2>&1 || MISSING="$MISSING ninja-build"
+          if [ -n "$MISSING" ]; then
+            sudo apt-get install -y $MISSING
+          fi
 
       # -----------------------------
       # Install required tools (macOS)
-      # Conditional: Only install CMake if missing
       # -----------------------------
-      - name: Install macOS Tools
+      - name: Install Tools (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew list cmake || brew install cmake
+          brew list cmake >/dev/null 2>&1 || brew install cmake
+          brew list ccache >/dev/null 2>&1 || brew install ccache
+          brew list ninja >/dev/null 2>&1 || brew install ninja
 
       # -----------------------------
       # Install required tools (Windows)
-      # Conditional: Only install CMake if missing
-      # Avoid caching the whole Chocolatey folder (slow)
       # -----------------------------
-      - name: Install Windows Tools
+      - name: Install Tools (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco list --local-only cmake || choco install cmake -y
+          $missing = @()
+          if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) { $missing += "cmake" }
+          if (-not (Get-Command ccache -ErrorAction SilentlyContinue)) { $missing += "ccache" }
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { $missing += "ninja" }
+
+          if ($missing.Count -gt 0) {
+            choco install $missing -y
+          }
+            
+      # -----------------------------
+      # Configure ccache
+      # -----------------------------
+      - name: Configure ccache
+        shell: bash
+        run: |
+          # Set cache directory
+          export CCACHE_DIR="$HOME_DIR/.cache/ccache"
+
+          # Makes cache independent of absolute build paths.
+          # Helpful because GitHub runners are ephemeral.
+          export CCACHE_BASEDIR="$GITHUB_WORKSPACE"
+          export CCACHE_NOHASHDIR=true
+
+          # Persist for later steps
+          echo "CCACHE_DIR=$CCACHE_DIR" >> $GITHUB_ENV
+          echo "CCACHE_BASEDIR=$CCACHE_BASEDIR" >> $GITHUB_ENV
+          echo "CCACHE_NOHASHDIR=$CCACHE_NOHASHDIR" >> $GITHUB_ENV
+
+          # Allow caching even if __TIME__ / __DATE__ macros are used.
+          # Without this, any source file using time-based macros
+          # will always result in cache misses.
+          ccache --set-config=sloppiness=time_macros
+
+          # Enable compression of cached object files.
+          # Reduces disk usage in ~/.cache/ccache at the cost of
+          # slightly more CPU during compression/decompression.
+          ccache --set-config=compression=true
+
+          # Set moderate compression level (1–9).
+          # Level 5 is a good CI balance between speed and size.
+          ccache --set-config=compression_level=5
+
+      - name: Enable ccache debug
+        shell: bash
+        run: |
+          # Write to GitHub Actions environment so future steps see it
+          echo "CCACHE_LOGFILE=$GITHUB_WORKSPACE/ccache.log" >> $GITHUB_ENV
+          echo "CCACHE_DEBUG=1" >> $GITHUB_ENV
 
       # -----------------------------
-      # Configure CMake build
+      # Configure CMake build 
+      # -S .                  → Source directory
+      # -B build              → Out-of-source build directory
+      # -G Ninja                     → Use Ninja for consistent cross-platform builds
+      # -DCMAKE_CXX_COMPILER  → Explicit compiler (g++, clang++, etc.)
+      # -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+      #                       → Tells CMake to invoke the compiler
+      #                         through ccache for object compilation
+      # -DCMAKE_BUILD_TYPE    → Release / Debug / RelWithDebInfo
+      # -DFETCHCONTENT_BASE_DIR
+      #                       → Redirects CMake FetchContent downloads
+      #                         into a persistent directory so it can
+      #                         be cached via actions/cache
       # -----------------------------
-      - name: Configure Build
-        run: cmake -S . -B build -DCMAKE_CXX_COMPILER=${{ inputs.compiler }}
+      - name: Configure CMake
+        shell: bash
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_CXX_COMPILER=${{ inputs.compiler }} \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build-type }} \
+            -DFETCHCONTENT_BASE_DIR="$HOME_DIR/.cmake/FetchContent"
+
+      # -----------------------------
+      # Cache CMake FetchContent dependencies (GoogleTest, etc.)
+      # to avoid re-downloading on each build
+      # Uses OS-specific key, compiler info and 
+      # hash of CMakeLists.txt to invalidate cache if 
+      # dependencies change
+      # -----------------------------
+      - name: Cache CMake FetchContent
+        uses: actions/cache@v4
+        with:
+          path: ~/.cmake/FetchContent
+          key: >
+            fetchcontent
+            -${{ runner.os }}
+            -${{ inputs.compiler }}
+            -${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            fetchcontent-${{ runner.os }}-${{ inputs.compiler}}-
+            fetchcontent-${{ runner.os }}-
+
+      # -----------------------------
+      # Cache ccache 
+      # Uses OS-specific key and compiler info to invalidate 
+      # cache if dependencies change
+      # -----------------------------
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: >
+            ccache
+            -${{ runner.os }}
+            -${{ inputs.compiler }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ inputs.compiler}}-
+            ccache-${{ runner.os }}-
 
       # -----------------------------
       # Build test target
       # -----------------------------
       - name: Build hotel_app_tests
-        run: cmake --build build --target hotel_app_tests
+        run: >
+          cmake --build build
+          --target hotel_app_tests
+          --config ${{ inputs.build-type }}
 
       # -----------------------------
       # Build application executable
       # -----------------------------
       - name: Build hotel_app
-        run: cmake --build build --target hotel_app
+        run: >
+          cmake --build build
+          --target hotel_app
+          --config ${{ inputs.build-type }}
 
       # -----------------------------
       # Run app tests
       # -----------------------------
       - name: Run App Tests
-        run: ctest --test-dir build/Application/tests --output-on-failure
+        run: >
+          ctest
+          --test-dir build/Application/tests
+          --build-config ${{ inputs.build-type }}
+          --output-on-failure
 
       # -----------------------------
       # Upload test reports for artifact analysis
@@ -132,3 +270,22 @@ jobs:
         with:
           name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/hotel_app
+
+      # -----------------------------
+      # Show ccache statistics & config
+      # -----------------------------
+      - name: ccache statistics & config
+        shell: bash
+        run: |
+          ccache --show-stats --verbose
+          ccache --show-config
+
+
+      - name: Show ccache debug log
+        shell: bash
+        run: |
+          echo "====== CCACHE DEBUG LOG ======"
+          ls -la $GITHUB_WORKSPACE
+          cat $GITHUB_WORKSPACE/ccache.log || echo "No log found"
+
+
