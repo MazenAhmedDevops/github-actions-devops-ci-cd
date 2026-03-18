@@ -11,6 +11,8 @@ target_compile_definitions(hotel_app_tests
     PRIVATE APP_EXECUTABLE_PATH="$<TARGET_FILE:hotel_app>"
 )
 
+enable_relaxed_warnings(hotel_app_tests)
+
 # Link library and GoogleTest to test executable for the App
 target_link_libraries(hotel_app_tests
     PRIVATE

@@ -3,6 +3,8 @@ add_executable(hotel_app
     src/main.cpp
 )
 
+enable_strict_warnings(hotel_app)
+
 # Include headers
 target_include_directories(hotel_app
     PRIVATE

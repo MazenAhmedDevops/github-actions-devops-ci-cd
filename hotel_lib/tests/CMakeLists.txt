@@ -23,6 +23,9 @@ file(GLOB LIB_TEST_SOURCES ./*.cpp)
 # Add executable for library tests
 add_executable(hotel_lib_tests ${LIB_TEST_SOURCES})
 
+enable_relaxed_warnings(hotel_lib_tests)
+
+
 # Link library and GoogleTest to test executable
 target_link_libraries(hotel_lib_tests
     PRIVATE

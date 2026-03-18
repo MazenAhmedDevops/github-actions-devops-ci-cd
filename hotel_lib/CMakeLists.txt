@@ -4,6 +4,8 @@ add_library(hotel_lib
     src/HotelRoom.cpp
 )
 
+enable_strict_warnings(hotel_lib)
+
 # Include directory for public headers
 target_include_directories(hotel_lib PUBLIC include)
 
