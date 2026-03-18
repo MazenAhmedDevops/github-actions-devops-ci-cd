@@ -1,5 +1,8 @@
 name: Build & Test Hotel library (Reusable)
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # This workflow can be called from other workflows
 on:
   workflow_call:
@@ -26,7 +29,7 @@ jobs:
       # -----------------------------
       # Checkout source
       # -----------------------------
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       # -----------------------------
       # Setting up enviroment for Cl compiler 
@@ -223,7 +226,7 @@ jobs:
       # Upload artifacts
       # -----------------------------
       - name: Upload Library Test Report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: library_test_report-${{ inputs.os }}-${{ inputs.compiler }}
           path: build/hotel_lib/tests/Testing/Temporary

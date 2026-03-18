@@ -1,5 +1,8 @@
 name: Application Quality Checks
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # -----------------------------
 # Triggers
 # -----------------------------
@@ -33,7 +36,7 @@ jobs:
     needs: library  # Ensure library tests passed
     steps:
       # Checkout code
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       # Install linting and coverage tools
       - name: Install Tools
@@ -102,7 +105,7 @@ jobs:
 
       # Upload coverage report
       - name: Upload Coverage Report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: coverage_report
           path: build/Application/coverage.filtered.info

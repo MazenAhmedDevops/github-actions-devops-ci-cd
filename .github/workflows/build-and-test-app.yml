@@ -1,5 +1,8 @@
 name: Build & Test Hotel App (Reusable)
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # -----------------------------
 # Reusable workflow for building & testing the hotel app
 # Can be called from other workflows (matrix or single runs)
@@ -25,11 +28,12 @@ jobs:
   build-test-app:
     runs-on: ${{ inputs.os }}
 
+
     steps:
       # -----------------------------
       # Checkout the repository
       # -----------------------------
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
 
       # -----------------------------
       # Setting up enviroment for Cl compiler 
@@ -235,7 +239,7 @@ jobs:
       # Upload test reports for artifact analysis
       # -----------------------------
       - name: Upload App Test Report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: Application_test_report-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/tests/Testing/Temporary
@@ -245,7 +249,7 @@ jobs:
       # -----------------------------
       - name: Upload App Binary (Linux)
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/hotel_app
@@ -256,7 +260,7 @@ jobs:
       # -----------------------------
       - name: Upload App Binary (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/**/hotel_app.exe
@@ -266,7 +270,7 @@ jobs:
       # -----------------------------
       - name: Upload App Binary (macOS)
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
           name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/hotel_app
