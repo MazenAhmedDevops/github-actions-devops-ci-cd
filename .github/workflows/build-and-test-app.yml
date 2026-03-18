@@ -24,7 +24,7 @@ jobs:
       # -----------------------------
       # Checkout the repository
       # -----------------------------
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # -----------------------------
       # Cache CMake FetchContent dependencies (GoogleTest, etc.)
@@ -33,7 +33,7 @@ jobs:
       # invalidate cache if dependencies change
       # -----------------------------
       - name: Cache GoogleTest (FetchContent)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cmake/FetchContent
           key: ${{ runner.os }}-gtest-${{ hashFiles('**/CMakeLists.txt') }}
@@ -97,7 +97,7 @@ jobs:
       # Upload test reports for artifact analysis
       # -----------------------------
       - name: Upload App Test Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: Application_test_report-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/tests/Testing/Temporary
@@ -107,7 +107,7 @@ jobs:
       # -----------------------------
       - name: Upload App Binary (Linux)
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/hotel_app
@@ -118,7 +118,7 @@ jobs:
       # -----------------------------
       - name: Upload App Binary (Windows)
         if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/**/hotel_app.exe
@@ -128,7 +128,7 @@ jobs:
       # -----------------------------
       - name: Upload App Binary (macOS)
         if: runner.os == 'macOS'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: hotel_app_executable-${{ runner.os }}-${{ inputs.compiler }}
           path: build/Application/hotel_app
